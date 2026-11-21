@@ -36,18 +36,40 @@ mengecek pipeline; jalankan lebih banyak epoch sebelum menarik kesimpulan kualit
 python src\run_experiment.py --device auto --epochs 30 --classifier-epochs 25 --decoder-epochs 10 --ddpm-steps 1000
 ```
 
-Jika sudah memiliki checkpoint `mlp_classifier.pt` yang dibuat dengan
-`torch.save(model.state_dict(), "mlp_classifier.pt")` dari arsitektur
-784 → 256 → 64 → 10, classifier itu dapat dipakai tanpa training ulang:
+### Melatih MLP classifier (Tahap 1)
+
+MLP classifier 784 → 256 → 64 → 10 dilatih terpisah dengan `src/train_classifier.py`.
+Skrip ini memakai split 80:10:10 seed 42 yang sama dengan pipeline
+(`data.make_loaders`), sehingga test split tidak pernah dilihat saat training:
 
 ```powershell
-python src\run_experiment.py --device auto --classifier-checkpoint "C:\path\to\mlp_classifier.pt" --epochs 30 --ddpm-steps 1000
+python src\train_classifier.py --epochs 20 --checkpoint mlp_classifier.pt
 ```
 
-Checkpoint hanya berisi bobot, jadi pastikan berasal dari Fashion-MNIST dengan
-preprocessing `ToTensor()` dan split 80:10:10 seed 42 yang sama. Pipeline tetap
-mengukur ulang akurasi pada test split-nya dan melatih frozen latent decoder
-menggunakan train split yang sama.
+Skrip menyimpan `state_dict` (`mlp_classifier.pt`) dan log per epoch
+(`classifier_training.json`: loss, akurasi train/val, waktu, dan akurasi test akhir).
+Bobot yang disimpan adalah bobot epoch terakhir; test split tidak dipakai untuk memilih
+checkpoint. Checkpoint yang dipakai pada laporan (akurasi test 89,09%) disertakan di
+repositori dan dapat diperiksa tanpa melatih ulang:
+
+```powershell
+python src\train_classifier.py --evaluate mlp_classifier.pt
+```
+
+Urutan batch training pada notebook awal dan pada skrip ini tidak dijamin identik
+bit-per-bit, jadi melatih ulang menghasilkan akurasi yang mirip tetapi tidak persis
+sama. Gunakan `--checkpoint` dengan nama lain agar berkas yang dipakai laporan tidak
+tertimpa.
+
+Classifier tersebut kemudian dipakai pipeline tanpa training ulang:
+
+```powershell
+python src\run_experiment.py --device auto --classifier-checkpoint mlp_classifier.pt --epochs 30 --ddpm-steps 1000
+```
+
+Pastikan checkpoint berasal dari Fashion-MNIST dengan preprocessing `ToTensor()` dan
+split 80:10:10 seed 42 yang sama. Pipeline tetap mengukur ulang akurasi pada test split
+dan melatih frozen latent decoder menggunakan train split yang sama.
 
 Jika training selesai tetapi proses berhenti saat evaluasi, checkpoint hasil
 training dapat dimuat ulang tanpa mengulangi training:
