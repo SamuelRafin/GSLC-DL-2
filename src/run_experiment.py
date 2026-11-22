@@ -19,6 +19,7 @@ import torchvision
 from torchvision.utils import save_image
 
 from data import make_loaders
+from figures import save_interpolation_grid, save_reconstruction_grid, save_sample_grids
 from diffusion import DiffusionSchedule
 from metrics import (
     fid_score,
@@ -720,16 +721,14 @@ def create_figures(
         "Sparse AE": models["sparse_ae"](batch),
         "VAE": models["vae"](batch)[0],
     }
-    fig, axes = plt.subplots(4, 8, figsize=(12, 6))
-    for row, (label, images) in enumerate(reconstructions.items()):
-        for column, image in enumerate(images):
-            axes[row, column].imshow(image.squeeze().cpu(), cmap="gray", vmin=0, vmax=1)
-            axes[row, column].axis("off")
-        axes[row, 0].set_ylabel(label, rotation=0, labelpad=55, va="center")
-    fig.suptitle("Figur 1. Rekonstruksi pada delapan citra test")
-    fig.tight_layout()
-    fig.savefig(figures / "figure_1_reconstructions.png", dpi=200)
-    plt.close(fig)
+    save_reconstruction_grid(
+        [
+            (label, images.detach().cpu().squeeze(1).numpy())
+            for label, images in reconstructions.items()
+        ],
+        figures / "figure_1_reconstructions.png",
+        "Figur 1. Rekonstruksi pada delapan citra test",
+    )
 
     samples = {
         "VAE": models["vae"].decode(torch.randn(16, args.latent_dim, device=device)),
@@ -737,18 +736,18 @@ def create_figures(
         "DCGAN": models["dcgan"](torch.randn(16, args.noise_dim, device=device)),
         "DDPM": diffusion.sample(models["ddpm"], 16),
     }
-    fig, axes = plt.subplots(4, 16, figsize=(16, 5))
-    for row, (label, images) in enumerate(samples.items()):
+    sample_panels = []
+    for label, images in samples.items():
         if label != "VAE":
             images = (images + 1) / 2
-        for column, image in enumerate(images):
-            axes[row, column].imshow(image.squeeze().cpu().clamp(0, 1), cmap="gray")
-            axes[row, column].axis("off")
-        axes[row, 0].set_ylabel(label, rotation=0, labelpad=65, va="center")
-    fig.suptitle("Figur 2. Sampling acak (16 sampel per model)")
-    fig.tight_layout()
-    fig.savefig(figures / "figure_2_generated_samples.png", dpi=200)
-    plt.close(fig)
+        sample_panels.append(
+            (label, images.detach().cpu().clamp(0, 1).squeeze(1).numpy())
+        )
+    save_sample_grids(
+        sample_panels,
+        figures / "figure_2_generated_samples.png",
+        "Figur 2. Sampling acak, kisi 4x4 per model",
+    )
 
     original = batch[:1]
     latent = classifier.encode(original)
@@ -805,7 +804,7 @@ def create_figures(
             z_b = model.encode(endpoints[1:])[0]
         else:
             z_a, z_b = model.encode(endpoints[:1]), model.encode(endpoints[1:])
-        rows.append((key.replace("_", " ").title(), model.decode(
+        rows.append(({"vanilla_ae": "Vanilla AE", "sparse_ae": "Sparse AE", "vae": "VAE"}[key], model.decode(
             torch.cat([(1 - alpha) * z_a + alpha * z_b for alpha in alphas])
         )))
     for key, title in (("gan", "Vanilla GAN"), ("dcgan", "DCGAN")):
@@ -814,18 +813,15 @@ def create_figures(
         z = torch.cat([(1 - alpha) * z_a + alpha * z_b for alpha in alphas])
         generated = models[key](z)
         rows.append((title, (generated + 1) / 2))
-    fig, axes = plt.subplots(len(rows), 6, figsize=(10, 7))
-    for row, (label, images) in enumerate(rows):
-        for column, image in enumerate(images):
-            axes[row, column].imshow(image.squeeze().cpu().clamp(0, 1), cmap="gray")
-            axes[row, column].axis("off")
-            if row == 0:
-                axes[row, column].set_title(f"α={alphas[column].item():.1f}")
-        axes[row, 0].set_ylabel(label, rotation=0, labelpad=65, va="center")
-    fig.suptitle("Figur 4. Interpolasi linier pada ruang laten")
-    fig.tight_layout()
-    fig.savefig(figures / "figure_4_interpolation.png", dpi=200)
-    plt.close(fig)
+    save_interpolation_grid(
+        [
+            (label, images.detach().cpu().clamp(0, 1).squeeze(1).numpy())
+            for label, images in rows
+        ],
+        [f"{alpha:.1f}" for alpha in alphas.tolist()],
+        figures / "figure_4_interpolation.png",
+        "Figur 4. Interpolasi linier pada ruang laten",
+    )
 
     fig, axes = plt.subplots(1, 2, figsize=(13, 4.5))
     for key, history in histories.items():
