@@ -85,7 +85,7 @@ merekonstruksi kurva loss yang belum tersimpan.
 
 ## Membuat PDF laporan dari hasil eksperimen
 
-Setelah mengunduh ZIP keluaran eksperimen ke komputer, buat laporan 11 halaman
+Setelah mengunduh ZIP keluaran eksperimen ke komputer, buat laporan PDF (Bagian I-VI, 10-12 halaman)
 dengan data metrik dan figur dari ZIP tersebut:
 
 ```powershell
@@ -94,6 +94,21 @@ python build_report.py --archive "C:\path\to\DL2-hasil-laporan.zip" --output "TU
 
 Argumen `--name`, `--nim`, `--class-name`, dan `--repository` dapat dipakai untuk
 mengubah identitas pada halaman judul.
+
+### Membuat ulang Figur 1, 2, dan 4 (label baris dan kisi 4x4)
+
+Panduan tugas meminta Figur 2 berupa empat kisi 4x4 (Panel A-D). Figur dari run
+sebelumnya masih berupa baris 1x16 tanpa label baris. Buat ulang dari checkpoint tanpa
+melatih ulang (`--ddpm-steps` harus sama dengan saat training):
+
+```powershell
+python src\regenerate_figures.py --checkpoints "outputs\checkpoints" --output "outputs\figures_new" --ddpm-steps 1000
+python build_report.py --archive "C:\path\to\DL2-hasil-laporan.zip" --figures-dir "outputs\figures_new" --output "TUGAS_DL_SESI07_2802477383_Samuel_Rafin_Djunaidi.pdf"
+```
+
+Figur 1 dan 4 mendapat label baris, Figur 2 disusun sebagai kisi 4x4, dan sampel baru
+ditarik dengan seed 42 (berbeda dari sampel run sebelumnya). Setelah membuat ulang,
+periksa kembali kalimat analisis Figur 2 pada laporan.
 
 DDPM dengan 1.000 langkah dan pengukuran FID memerlukan waktu lebih lama. Untuk
 memeriksa bahwa kode berjalan, kurangi epoch/langkah dan gunakan `--skip-fid`;
